@@ -26,13 +26,13 @@ import './App.css'
 
 // 초기 모의 데이터
 const INITIAL_RECORDS = [
-  { id: 1, date: '2026-06-29', dayOfWeek: '월요일', time: '12:40:12', value: 17, eye: 'right', device: 'CVT200-A', medicine: '오클라에스 점안액', taken: true },
-  { id: 2, date: '2026-06-29', dayOfWeek: '월요일', time: '09:15:24', value: 15, eye: 'left', device: 'CVT200-A', medicine: '코솝에스 점안액', taken: true },
-  { id: 3, date: '2026-06-28', dayOfWeek: '일요일', time: '21:30:45', value: 19, eye: 'right', device: 'CVT200-A', medicine: '오클라에스 점안액', taken: true },
-  { id: 4, date: '2026-06-28', dayOfWeek: '일요일', time: '08:45:10', value: 16, eye: 'left', device: 'CVT200-A', medicine: '코솝에스 점안액', taken: true },
-  { id: 5, date: '2026-06-27', dayOfWeek: '토요일', time: '20:10:00', value: 18, eye: 'right', device: 'CVT200-A', medicine: '알파간피 점안액', taken: false },
-  { id: 6, date: '2026-06-27', dayOfWeek: '토요일', time: '09:00:15', value: 14, eye: 'left', device: 'CVT200-A', medicine: '리프레쉬 플러스', taken: true },
-  { id: 7, date: '2026-06-26', dayOfWeek: '금요일', time: '19:40:33', value: 21, eye: 'right', device: 'CVT200-A', medicine: '알파간피 점안액', taken: true }
+  { id: 1, date: '2026-06-29', dayOfWeek: '월요일', time: '12:40:12', value: 17, eye: 'right', device: 'CVT200-A', memo: '정상 수치 유지' },
+  { id: 2, date: '2026-06-29', dayOfWeek: '월요일', time: '09:15:24', value: 15, eye: 'left', device: 'CVT200-A', memo: '안정적' },
+  { id: 3, date: '2026-06-28', dayOfWeek: '일요일', time: '21:30:45', value: 19, eye: 'right', device: 'CVT200-A', memo: '약간 높음' },
+  { id: 4, date: '2026-06-28', dayOfWeek: '일요일', time: '08:45:10', value: 16, eye: 'left', device: 'CVT200-A', memo: '양호' },
+  { id: 5, date: '2026-06-27', dayOfWeek: '토요일', time: '20:10:00', value: 18, eye: 'right', device: 'CVT200-A', memo: '특이사항 없음' },
+  { id: 6, date: '2026-06-27', dayOfWeek: '토요일', time: '09:00:15', value: 14, eye: 'left', device: 'CVT200-A', memo: '최상' },
+  { id: 7, date: '2026-06-26', dayOfWeek: '금요일', time: '19:40:33', value: 21, eye: 'right', device: 'CVT200-A', memo: '취침 전 측정, 약간 상승' }
 ]
 
 export default function App() {
@@ -48,12 +48,12 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_RECORDS
   })
   
-  // 알림 팝업 모달
+  // 가상 알림 팝업 모달
   const [isAlarmPopupOpen, setIsAlarmPopupOpen] = useState(false)
   const [alarmInfo, setAlarmInfo] = useState({
     time: 'PM 11:33',
-    med: '오클라에스 점안액',
-    dose: 1
+    value: 17,
+    eye: 'right'
   })
 
   // 상세 편집 모달
@@ -67,10 +67,10 @@ export default function App() {
       const now = new Date()
       let hours = now.getHours()
       const minutes = String(now.getMinutes()).padStart(2, '0')
-      const ampm = hours >= 12 ? 'PM' : 'AM'
+      const ampm = hours >= 12 ? '오후' : '오전'
       hours = hours % 12
       hours = hours ? hours : 12 // 0시를 12시로 표시
-      setCurrentTime(`${ampm} ${hours}:${minutes}`)
+      setCurrentTime(`${ampm} ${String(hours).padStart(2, '0')}:${minutes}`)
     }
     updateTime()
     const timer = setInterval(updateTime, 60000)
@@ -91,7 +91,6 @@ export default function App() {
       setTimeout(() => {
         setIsBluetoothConnecting(false)
         setIsBluetoothConnected(true)
-        // 연결 완료 후 기록(측정) 화면으로 자동 전환도 지원
         setCurrentScreen('record')
       }, 2000)
     }
@@ -102,8 +101,8 @@ export default function App() {
     setTimeout(() => {
       setAlarmInfo({
         time: currentTime,
-        med: '오클라에스 점안액',
-        dose: 1
+        value: 18,
+        eye: 'right'
       })
       setIsAlarmPopupOpen(true)
     }, 3000)
@@ -118,13 +117,18 @@ export default function App() {
     }
   }
 
-  // 기록 추가 함수 (측정기에서 가상 수신 시 사용)
-  const addRecord = (newValue, eyeType) => {
+  // 기록 추가 함수 (저장 버튼 클릭 시 최종 호출됨)
+  const addRecord = (newValue, eyeType, customTimeStr, customDateStr) => {
     const now = new Date()
-    const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+    const dateStr = customDateStr || now.toISOString().split('T')[0] // YYYY-MM-DD
     const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
-    const dayOfWeek = days[now.getDay()]
-    const timeStr = now.toTimeString().split(' ')[0] // HH:MM:SS
+    
+    // 만약 사용자가 지정한 날짜가 있다면 해당 날짜의 요일 계산
+    const targetDate = new Date(dateStr)
+    const dayOfWeek = days[isNaN(targetDate.getDay()) ? now.getDay() : targetDate.getDay()]
+    
+    // 시간대 포맷 보정 (수기 입력 등으로 커스텀 시간이 들어온 경우)
+    let timeStr = customTimeStr || now.toTimeString().split(' ')[0]
     
     const newRecord = {
       id: Date.now(),
@@ -134,8 +138,7 @@ export default function App() {
       value: Number(newValue),
       eye: eyeType,
       device: 'CVT200-A',
-      medicine: eyeType === 'right' ? '오클라에스 점안액' : '코솝에스 점안액',
-      taken: true
+      memo: '수기 입력 기록'
     }
     
     setRecords(prev => [newRecord, ...prev])
@@ -251,15 +254,15 @@ export default function App() {
               </div>
             )}
 
-            {/* [화면 1] 점안 알림 팝업 모달 */}
+            {/* [화면 1] 안압 측정 알림 팝업 모달 */}
             {isAlarmPopupOpen && (
               <div className="popup-backdrop">
                 <div className="w-full max-w-[280px] bg-slate-900/95 border-2 border-purple-500 rounded-3xl p-6 text-center pulse-glow-purple">
                   <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Bell className="text-purple-400 w-8 h-8 animate-bounce" />
                   </div>
-                  <h2 className="text-xl font-bold text-white mb-1">점안 알림</h2>
-                  <p className="text-xs text-purple-300 mb-4">아래와 같이 점안하세요</p>
+                  <h2 className="text-xl font-bold text-white mb-1">안압 측정 알림</h2>
+                  <p className="text-xs text-purple-300 mb-4">정기 측정 시간입니다</p>
 
                   <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-5 text-left text-sm space-y-2">
                     <div className="flex justify-between">
@@ -267,46 +270,62 @@ export default function App() {
                       <span className="font-bold text-yellow-300">{alarmInfo.time}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">안약</span>
-                      <span className="font-bold text-white">{alarmInfo.med}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">점안량</span>
-                      <span className="font-bold text-white">{alarmInfo.dose}회</span>
+                      <span className="text-gray-400">측정방향</span>
+                      <span className="font-bold text-white">{alarmInfo.eye === 'right' ? '우안(OD)' : '좌안(OS)'}</span>
                     </div>
                   </div>
 
                   <button 
                     className="w-full bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold py-3 rounded-xl transition-colors cursor-pointer"
-                    onClick={() => setIsAlarmPopupOpen(false)}
+                    onClick={() => {
+                      setIsAlarmPopupOpen(false);
+                      setCurrentScreen('record');
+                    }}
                   >
-                    확인 완료
+                    측정하러 가기
                   </button>
                 </div>
               </div>
             )}
 
-            {/* [신규] [점안결과] 상세 모달 팝업 (이미지 8 기반) */}
+            {/* [수정] 안압 측정 결과 상세 모달 팝업 */}
             {selectedRecordForEdit && (
               <div className="popup-backdrop">
                 <div className="result-modal-card">
-                  <h2 className="result-popup-title">점안결과</h2>
+                  <h2 className="result-popup-title">안압 측정 결과</h2>
                   <div className="result-form-container">
                     <div className="result-form-row">
-                      <span className="result-label">점안유무</span>
-                      <div className="result-check-wrapper">
-                        <input 
-                          type="checkbox" 
-                          id="edit-taken"
-                          checked={selectedRecordForEdit.taken}
-                          onChange={(e) => setSelectedRecordForEdit(prev => ({...prev, taken: e.target.checked}))}
-                          className="w-4 h-4 accent-red-400 cursor-pointer"
-                        />
-                        <span className="result-check-text">완료 시 체크</span>
+                      <span className="result-label">안압값</span>
+                      <input 
+                        type="number" 
+                        className="result-field-input font-bold text-emerald-400" 
+                        value={selectedRecordForEdit.value}
+                        onChange={(e) => setSelectedRecordForEdit(prev => ({...prev, value: Number(e.target.value)}))}
+                      />
+                    </div>
+                    <div className="result-form-row">
+                      <span className="result-label">측정방향</span>
+                      <div className="flex gap-2 flex-1">
+                        <button 
+                          className={`flex-1 py-1 rounded text-xs font-bold cursor-pointer transition-colors ${
+                            selectedRecordForEdit.eye === 'left' ? 'bg-emerald-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10'
+                          }`}
+                          onClick={() => setSelectedRecordForEdit(prev => ({...prev, eye: 'left'}))}
+                        >
+                          좌안
+                        </button>
+                        <button 
+                          className={`flex-1 py-1 rounded text-xs font-bold cursor-pointer transition-colors ${
+                            selectedRecordForEdit.eye === 'right' ? 'bg-emerald-600 text-white' : 'bg-white/5 text-gray-400 border border-white/10'
+                          }`}
+                          onClick={() => setSelectedRecordForEdit(prev => ({...prev, eye: 'right'}))}
+                        >
+                          우안
+                        </button>
                       </div>
                     </div>
                     <div className="result-form-row">
-                      <span className="result-label">점안일</span>
+                      <span className="result-label">측정일</span>
                       <input 
                         type="text" 
                         className="result-field-input" 
@@ -315,7 +334,7 @@ export default function App() {
                       />
                     </div>
                     <div className="result-form-row">
-                      <span className="result-label">점안시간</span>
+                      <span className="result-label">측정시간</span>
                       <input 
                         type="text" 
                         className="result-field-input" 
@@ -324,7 +343,7 @@ export default function App() {
                       />
                     </div>
                     <div className="result-form-row">
-                      <span className="result-label">점안기기</span>
+                      <span className="result-label">측정기기</span>
                       <input 
                         type="text" 
                         className="result-field-input" 
@@ -333,12 +352,12 @@ export default function App() {
                       />
                     </div>
                     <div className="result-form-row align-start">
-                      <span className="result-label mt-1">안약</span>
+                      <span className="result-label mt-1">메모</span>
                       <textarea 
                         className="result-field-textarea" 
                         rows={2}
-                        value={selectedRecordForEdit.medicine}
-                        onChange={(e) => setSelectedRecordForEdit(prev => ({...prev, medicine: e.target.value}))}
+                        value={selectedRecordForEdit.memo || ''}
+                        onChange={(e) => setSelectedRecordForEdit(prev => ({...prev, memo: e.target.value}))}
                       />
                     </div>
                   </div>
@@ -376,13 +395,13 @@ export default function App() {
         <header className="guide-header">
           <span className="badge">PROTOTYPE DEMO</span>
           <h1>TONO-i CVT200</h1>
-          <p>안압 관리 및 스마트 기기 연동 인터랙티브 프로토타입입니다. 좌측의 가상 디바이스 시뮬레이터에서 실시간 기능 전개를 확인할 수 있습니다.</p>
+          <p>안압 관리 및 스마트 기기 연동 인터랙티브 프로토타입입니다. 우측 패널 제어 장치와 좌측 시뮬레이터를 통해 가상으로 안압 측정 시나리오를 검증해 보실 수 있습니다.</p>
         </header>
 
         {/* 1. 페이지 직접 이동 */}
         <div className="guide-card">
           <h2>1. 페이지 강제 이동 및 전개</h2>
-          <p class="card-desc">아래 버튼을 눌러 시뮬레이터 내 화면을 직접 이동합니다.</p>
+          <p className="card-desc">아래 버튼을 눌러 시뮬레이터 내 화면을 직접 이동합니다.</p>
           <div className="demo-buttons-grid">
             <button 
               className={`demo-nav-btn ${currentScreen === 'splash' ? 'active' : ''}`}
@@ -446,7 +465,7 @@ export default function App() {
         {/* 2. 인터랙티브 기능 시뮬레이션 */}
         <div className="guide-card">
           <h2>2. 기능 시뮬레이터</h2>
-          <p class="card-desc">실제 기기처럼 작동하는 다양한 이벤트를 테스트해 볼 수 있습니다.</p>
+          <p className="card-desc">실제 기기처럼 작동하는 다양한 이벤트를 테스트해 볼 수 있습니다.</p>
           
           <div className="sim-actions-list">
             {/* 블루투스 기기 연결 */}
@@ -466,8 +485,8 @@ export default function App() {
             {/* 가상 알림 트리거 */}
             <div className="sim-action-item">
               <div className="sim-info">
-                <strong>3초 후 가상 점안 알림 발생</strong>
-                <span>예약한 시간에 울리는 점안 푸시 알림 팝업창을 가상으로 띄웁니다.</span>
+                <strong>3초 후 가상 안압 측정 알림</strong>
+                <span>측정 예약 시간에 맞춰 모바일 팝업창을 가상으로 띄웁니다.</span>
               </div>
               <button className="btn-sim" onClick={triggerVirtualAlarm}>알림 테스트</button>
             </div>
@@ -488,8 +507,8 @@ export default function App() {
           <h3>💡 실시간 기능 연계 팁</h3>
           <ul>
             <li>메인메뉴 우측 상단의 <strong>ℹ️(정보) 아이콘</strong>을 터치하면 <strong>사용설명서 페이지</strong>로 편리하게 이동합니다.</li>
-            <li>블루투스 연결이 완료된 후, 기록 화면에서 <strong>"자동측정" 토글</strong>을 켜면 3초 뒤 기기가 무작위 안압을 측정하여 이력에 자동 반영합니다.</li>
-            <li>안압기록 화면에서 개별 이력을 터치하면, <strong>[점안결과] 상세 팝업(산호색 모달)</strong>이 나타나 수정 및 삭제가 연동됩니다.</li>
+            <li>기록 화면에서 안압을 <strong>수기로 직접 입력</strong>하거나, 블루투스가 연결된 상태에서 <strong>자동측정</strong>을 진행한 후 반드시 <strong>"저장"</strong> 버튼을 눌러야 최종 이력에 등록됩니다.</li>
+            <li>안압기록 화면에서 개별 이력을 터치하면, <strong>[안압 측정 결과] 상세 팝업</strong>이 나타나 수정 및 삭제가 연동됩니다.</li>
             <li>기록전송 화면에서 검색 기간을 정해 필터링한 후 <strong>"CSV 다운로드"</strong>를 누르면 엑셀 연동 데이터가 파일로 다운로드됩니다.</li>
           </ul>
         </div>

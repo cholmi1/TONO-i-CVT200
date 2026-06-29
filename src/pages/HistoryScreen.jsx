@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { GlassCard } from '../components/ui/GlassCard'
-import { ArrowLeft, TrendingUp, Menu } from 'lucide-react'
+import { ArrowLeft, TrendingUp } from 'lucide-react'
 
 export default function HistoryScreen({ onNavigate, records, onSelectRecord }) {
   const [selectedEye, setSelectedEye] = useState('right') // left (좌안 OS), right (우안 OD)
@@ -48,6 +48,7 @@ export default function HistoryScreen({ onNavigate, records, onSelectRecord }) {
 
       {/* 리스트 본문 */}
       <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 mb-4 pr-0.5">
+        <p className="text-[10px] text-gray-400 mb-1 px-1">* 기록 항목을 클릭하면 [안압 측정 결과] 편집 팝업이 나타납니다.</p>
         {filteredRecords.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-16 text-gray-400 gap-2">
             <span className="text-sm">데이터가 없습니다</span>
