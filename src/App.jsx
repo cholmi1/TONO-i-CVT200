@@ -7,6 +7,7 @@ import AnalysisScreen from './pages/AnalysisScreen'
 import ManagementScreen from './pages/ManagementScreen'
 import SendScreen from './pages/SendScreen'
 import GuideScreen from './pages/GuideScreen'
+import AlarmScreen from './pages/AlarmScreen'
 
 import { 
   Wifi, 
@@ -24,7 +25,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 
-// 초기 모의 데이터
+// 초기 모의 데이터 (측정기록)
 const INITIAL_RECORDS = [
   { id: 1, date: '2026-06-29', dayOfWeek: '월요일', time: '12:40:12', value: 17, eye: 'right', device: 'CVT200-A', memo: '정상 수치 유지' },
   { id: 2, date: '2026-06-29', dayOfWeek: '월요일', time: '09:15:24', value: 15, eye: 'left', device: 'CVT200-A', memo: '안정적' },
@@ -33,6 +34,12 @@ const INITIAL_RECORDS = [
   { id: 5, date: '2026-06-27', dayOfWeek: '토요일', time: '20:10:00', value: 18, eye: 'right', device: 'CVT200-A', memo: '특이사항 없음' },
   { id: 6, date: '2026-06-27', dayOfWeek: '토요일', time: '09:00:15', value: 14, eye: 'left', device: 'CVT200-A', memo: '최상' },
   { id: 7, date: '2026-06-26', dayOfWeek: '금요일', time: '19:40:33', value: 21, eye: 'right', device: 'CVT200-A', memo: '취침 전 측정, 약간 상승' }
+]
+
+// 초기 모의 데이터 (알람설정)
+const INITIAL_ALARMS = [
+  { id: 1, time: '09:00', days: [1, 2, 3, 4, 5], everyday: false, title: '아침 안압 측정', active: true },
+  { id: 2, time: '21:00', days: [0, 1, 2, 3, 4, 5, 6], everyday: true, title: '저녁 안압 측정', active: true }
 ]
 
 export default function App() {
@@ -47,6 +54,12 @@ export default function App() {
     const saved = localStorage.getItem('tono_i_records')
     return saved ? JSON.parse(saved) : INITIAL_RECORDS
   })
+
+  // 알람 설정 상태
+  const [alarms, setAlarms] = useState(() => {
+    const saved = localStorage.getItem('tono_i_alarms')
+    return saved ? JSON.parse(saved) : INITIAL_ALARMS
+  })
   
   // 가상 알림 팝업 모달
   const [isAlarmPopupOpen, setIsAlarmPopupOpen] = useState(false)
@@ -56,7 +69,7 @@ export default function App() {
     eye: 'right'
   })
 
-  // 상세 편집 모달
+  // 상세 편집 모달 (측정기록용)
   const [selectedRecordForEdit, setSelectedRecordForEdit] = useState(null)
   
   // 실시간 시간 업데이트
@@ -81,6 +94,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('tono_i_records', JSON.stringify(records))
   }, [records])
+
+  useEffect(() => {
+    localStorage.setItem('tono_i_alarms', JSON.stringify(alarms))
+  }, [alarms])
 
   // 가상 블루투스 연결 토글 프로세스
   const handleBluetoothToggle = () => {
@@ -112,6 +129,7 @@ export default function App() {
   const handleResetData = () => {
     if (window.confirm('모든 데이터를 초기 기본 데이터로 리셋하시겠습니까?')) {
       setRecords(INITIAL_RECORDS)
+      setAlarms(INITIAL_ALARMS)
       setIsBluetoothConnected(false)
       setCurrentScreen('menu')
     }
@@ -123,11 +141,9 @@ export default function App() {
     const dateStr = customDateStr || now.toISOString().split('T')[0] // YYYY-MM-DD
     const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
     
-    // 만약 사용자가 지정한 날짜가 있다면 해당 날짜의 요일 계산
     const targetDate = new Date(dateStr)
     const dayOfWeek = days[isNaN(targetDate.getDay()) ? now.getDay() : targetDate.getDay()]
     
-    // 시간대 포맷 보정 (수기 입력 등으로 커스텀 시간이 들어온 경우)
     let timeStr = customTimeStr || now.toTimeString().split(' ')[0]
     
     const newRecord = {
@@ -144,7 +160,7 @@ export default function App() {
     setRecords(prev => [newRecord, ...prev])
   }
 
-  // 기록 업데이트 함수 (상세 편집 팝업에서 저장 시 사용)
+  // 기록 업데이트 함수
   const updateRecord = (updated) => {
     setRecords(prev => prev.map(r => r.id === updated.id ? updated : r))
     setSelectedRecordForEdit(null)
@@ -154,6 +170,23 @@ export default function App() {
   const deleteRecord = (id) => {
     setRecords(prev => prev.filter(r => r.id !== id))
     setSelectedRecordForEdit(null)
+  }
+
+  // 알람 CRUD 함수
+  const addAlarm = (newAlarm) => {
+    setAlarms(prev => [...prev, { ...newAlarm, id: Date.now(), active: true }])
+  }
+
+  const updateAlarm = (updated) => {
+    setAlarms(prev => prev.map(a => a.id === updated.id ? updated : a))
+  }
+
+  const deleteAlarm = (id) => {
+    setAlarms(prev => prev.filter(a => a.id !== id))
+  }
+
+  const toggleAlarmActive = (id) => {
+    setAlarms(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a))
   }
 
   const renderScreen = () => {
@@ -208,6 +241,17 @@ export default function App() {
         return (
           <GuideScreen 
             onNavigate={setCurrentScreen} 
+          />
+        )
+      case 'alarm':
+        return (
+          <AlarmScreen 
+            onNavigate={setCurrentScreen} 
+            alarms={alarms}
+            onAddAlarm={addAlarm}
+            onUpdateAlarm={updateAlarm}
+            onDeleteAlarm={deleteAlarm}
+            onToggleAlarm={toggleAlarmActive}
           />
         )
       default: 
@@ -453,10 +497,17 @@ export default function App() {
               <span className="step-name">기록전송 (CSV)</span>
             </button>
             <button 
+              className={`demo-nav-btn ${currentScreen === 'alarm' ? 'active' : ''}`}
+              onClick={() => setCurrentScreen('alarm')}
+            >
+              <span className="step-num">8</span>
+              <span className="step-name">알람설정</span>
+            </button>
+            <button 
               className={`demo-nav-btn ${currentScreen === 'guide' ? 'active' : ''}`}
               onClick={() => setCurrentScreen('guide')}
             >
-              <span className="step-num">8</span>
+              <span className="step-num">9</span>
               <span className="step-name">사용설명서</span>
             </button>
           </div>
@@ -495,7 +546,7 @@ export default function App() {
             <div className="sim-action-item">
               <div className="sim-info">
                 <strong>데모 데이터 초기화</strong>
-                <span>수정하거나 추가한 안압 측정 이력을 공장 초기화 데이터로 리셋합니다.</span>
+                <span>수정하거나 추가한 안압 측정 이력 및 알람을 공장 초기값으로 리셋합니다.</span>
               </div>
               <button className="btn-sim btn-danger" onClick={handleResetData}>데이터 초기화</button>
             </div>
@@ -509,6 +560,7 @@ export default function App() {
             <li>메인메뉴 우측 상단의 <strong>ℹ️(정보) 아이콘</strong>을 터치하면 <strong>사용설명서 페이지</strong>로 편리하게 이동합니다.</li>
             <li>기록 화면에서 안압을 <strong>수기로 직접 입력</strong>하거나, 블루투스가 연결된 상태에서 <strong>자동측정</strong>을 진행한 후 반드시 <strong>"저장"</strong> 버튼을 눌러야 최종 이력에 등록됩니다.</li>
             <li>안압기록 화면에서 개별 이력을 터치하면, <strong>[안압 측정 결과] 상세 팝업</strong>이 나타나 수정 및 삭제가 연동됩니다.</li>
+            <li>알람설정 화면에서 등록한 알람 카드 목록을 탭하면, **[알람 수정 팝업]**이 나타나 개별 편집 및 파기가 연동됩니다.</li>
             <li>기록전송 화면에서 검색 기간을 정해 필터링한 후 <strong>"CSV 다운로드"</strong>를 누르면 엑셀 연동 데이터가 파일로 다운로드됩니다.</li>
           </ul>
         </div>
